@@ -477,6 +477,32 @@ let dispatch pipeline (type a) : a Query_protocol.t -> a =
     in
     { Compl. entries ; context = `Unknown }
 
+  | Sherlodoc_search (query, pos, limit) ->
+    let query = Query_parser.of_string query in
+    let typer = Mpipeline.typer_result pipeline in
+    let pos = Mpipeline.get_lexing_pos pipeline pos in
+    let node = Mtyper.node_at typer pos in
+    let env, _ = Mbrowse.leaf_node node in
+    let config = Mpipeline.final_config pipeline in
+    let modules = Mconfig.global_modules config in 
+    let trie = Search.make_trie env modules in
+    let result = Search.run ~limit env query trie in
+    let verbosity = verbosity pipeline in
+    Printtyp.wrap_printing_env ~verbosity env (fun () ->
+      List.map ~f:(fun (cost, path, typ) ->
+          let name = Format.asprintf "%a" Printtyp.path path in
+          let loc = typ.Types.val_loc in
+          let typ =
+            Format.asprintf "%a"
+              (Type_utils.Printtyp.type_scheme env)
+              typ.Types.val_type
+          in
+          let head = path |> Path.head |> Ident.name in
+          let in_stdlib = String.starts_with ~prefix:"Stdlib__" head in
+          { name; typ; cost; loc; in_stdlib}
+        ) result
+    )
+
   | Refactor_open (mode, pos) ->
     let typer = Mpipeline.typer_result pipeline in
     let pos = Mpipeline.get_lexing_pos pipeline pos in

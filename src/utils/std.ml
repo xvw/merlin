@@ -107,6 +107,9 @@ module List = struct
     in
     aux [] lst
 
+  let rev_concat l =
+    List.fold_left (fun acc xs -> List.rev_append xs acc) [] l
+
   let rec filter_map ~f = function
     | [] -> []
     | x :: xs ->

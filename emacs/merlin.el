@@ -141,6 +141,10 @@ See `merlin-debug'."
   "The name of the buffer displaying result of polarity search."
   :group 'merlin :type 'string)
 
+(defcustom merlin-search-by-type-buffer-name "*merlin-search-by-type-result*"
+  "The name of the buffer displaying result of polarity search."
+  :group 'merlin :type 'string)
+
 (defcustom merlin-favourite-caml-mode nil
   "The OCaml mode to use for the *merlin-types* buffer."
   :group 'merlin :type 'symbol)
@@ -1093,6 +1097,52 @@ An ocaml atom is any string containing [a-z_0-9A-Z`.]."
   (let ((bounds (bounds-of-thing-at-point 'ocaml-atom)))
     (cons (if bounds (car bounds) (point))
           (point))))
+
+;;;;;;;;;;;;;;;;;;;;;
+;; SEARCH BY TYPE  ;;
+;;;;;;;;;;;;;;;;;;;;;
+
+(defun merlin--search-by-type (query)
+  (merlin-call "search-by-type"
+	       "-query" query
+	       "-position" (merlin-unmake-point (point))))
+
+(defun merlin--get-search-buff ()
+  (get-buffer-create merlin-search-by-type-buffer-name))
+
+(defun merlin--render-search-result (name type)
+  (let ((plain-name (string-remove-prefix "Stdlib__" name)))
+    (concat
+     (propertize "val " 'face (intern "font-lock-keyword-face"))
+     (propertize plain-name 'face (intern "font-lock-function-name-face"))
+     " : "
+     (propertize type 'face (intern "font-lock-doc-face")))))
+
+(defun merlin--search-result-to-list (entry)
+  (let ((function-name (cdr (assoc 'name entry)))
+        (function-type (cdr (assoc 'type entry))))
+      (list function-name
+          (vector (merlin--render-search-result function-name function-type)))))
+
+(defun merlin-search-by-type (query)
+  (interactive "sSearch query: ")
+  (let* ((result (merlin--search-by-type query))
+         (previous-buff (current-buffer)))
+    (let ((sbt-buff (merlin--get-search-buff))
+          (inhibit-read-only t))
+      (with-current-buffer sbt-buff
+        (switch-to-buffer-other-window sbt-buff)
+        (goto-char 1)
+        (tabulated-list-mode)
+        (setq tabulated-list-format [("Search by type result" 100 t)])
+        (setq tabulated-list-entries (mapcar 'merlin--search-result-to-list result))
+        (setq tabulated-list-padding 2)
+        (face-spec-set 'header-line '((t :weight bold :height 1.2)))
+        (tabulated-list-init-header)
+        (tabulated-list-print t)
+        (setq buffer-read-only t)
+        (switch-to-buffer-other-window previous-buff)))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;
 ;; POLARITY SEARCH ;;
