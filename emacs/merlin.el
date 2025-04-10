@@ -2043,6 +2043,35 @@ Empty string defaults to jumping to all these."
 
     command))
 
+;;;;;;;;;;;;;;;;;;;
+;; EGLOT INTEROP ;;
+;;;;;;;;;;;;;;;;;;;
+
+(defun merlin--eglot-call-compatible (command argv)
+  "Use tunneling `ocamllsp/merlinCallCompatible' with COMMAND and ARGV."
+  (when (not (and (fboundp 'eglot-current-server)
+                  (eglot-current-server)))
+    (error "Run `M-x eglot'"))
+  (let ((server (eglot--current-server-or-lose))
+        (method :ocamllsp/merlinCallCompatible)
+        (params (append (eglot--TextDocumentIdentifier)
+                        (list :command command
+                              :args argv
+                              :resultAsSexp :json-false))))
+    (condition-case err
+        (let* ((result (jsonrpc-request server method params))
+               (real-result (cl-getf result :result))
+               (json-result (json-parse-string real-result :object-type 'alist))
+               (result-class (cdr-safe (assoc 'class json-result)))
+               (value (cdr-safe (assoc 'value json-result))))
+          (pcase result-class
+            ("return" value)
+            ("failure" (error "merlin-eglot-call-compatible failure: %s" value))
+            ("error" (error "merlin-eglot-call-compatible error: %s" value))
+            (_ (error "merlin-eglot-call-compatible unknown answer: %S:%S"
+                      result-class value))))
+      (user-error (signal 'error (cdr err))))))
+
 ;;;;;;;;;;;;;;;;
 ;; MODE SETUP ;;
 ;;;;;;;;;;;;;;;;
