@@ -217,8 +217,12 @@ let rec select_open_node = function[@warning "-9"]
   | ( _,
       Expression
         { exp_desc =
-            Texp_open
-              ( { open_expr = { mod_desc = Tmod_ident (p, { txt = longident }) }
+            Texp_struct_item
+              ( { str_desc =
+                    Tstr_open
+                      { open_expr =
+                          { mod_desc = Tmod_ident (p, { txt = longident }) }
+                      }
                 },
                 _ );
           _

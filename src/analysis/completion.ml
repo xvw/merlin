@@ -285,7 +285,7 @@ let fold_sumtype_constructors ~env ~init ~f t =
     log ~title:"fold_sumtype_constructors" "node type: %s" (Path.name path);
     begin match Env.find_type_descrs path env with
     | exception Not_found -> init
-    | Type_record _ | Type_abstract _ | Type_open -> init
+    | Type_record _ | Type_abstract _ | Type_open | Type_external _ -> init
     | Type_variant (constrs, _) -> List.fold_right constrs ~init ~f
     end
   | _ -> init
@@ -833,6 +833,11 @@ let labels_of_application ~prefix = function
         | Asttypes.Labelled str -> Some ("~" ^ str, ty)
         | Asttypes.Optional str ->
           let ty =
+            let ty =
+              match Btype.tpoly_get_mono_opt ty with
+              | Some ty -> ty
+              | None -> ty
+            in
             match Types.get_desc ty with
             | Types.Tconstr (path, [ ty ], _)
               when Path.same path Predef.path_option -> ty
